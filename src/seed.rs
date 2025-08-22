@@ -1,5 +1,5 @@
-use rand::rngs::ThreadRng;
 use rand::Rng;
+use rand::rngs::ThreadRng;
 use std::num::ParseIntError;
 
 pub const MAX_SEED: u32 = u32::MAX;

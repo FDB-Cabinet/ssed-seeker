@@ -1,6 +1,6 @@
 use derive_builder::Builder;
-use flate2::write::GzEncoder;
 use flate2::Compression;
+use flate2::write::GzEncoder;
 use serde::Deserialize;
 use std::collections::HashMap;
 use std::fs::File;

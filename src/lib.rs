@@ -1,5 +1,5 @@
 use crate::gitlab::{Gitlab, PayloadBuilder};
-use crate::seed::{merge_user_defined_seeds, SeedIterator};
+use crate::seed::{SeedIterator, merge_user_defined_seeds};
 use clap::Parser;
 use rayon::iter::IntoParallelRefIterator;
 use rayon::iter::ParallelIterator;
@@ -70,8 +70,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Build GitLab API client only if token and project_id are provided
     let api: Option<Gitlab> = match (&cli.token, &cli.gitlab_project_id) {
         (Some(token), Some(project_id)) => {
-
-            info!(host=cli.gitlab_url, project_id,"Export reports to GitLab");
+            info!(
+                host = cli.gitlab_url,
+                project_id, "Export reports to GitLab"
+            );
 
             Some(
                 gitlab::GitlabBuilder::default()
@@ -84,7 +86,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         _ => {
             info!("No GitLab API configured, skipping GitLab export");
             None
-        },
+        }
     };
 
     let user_defined_seeds = merge_user_defined_seeds(cli.seeds.clone(), &cli.seed_file)?;
@@ -190,15 +192,42 @@ fn run_seed(seed: u32, cli: &Cli, api: Option<&Gitlab>) -> Result<(), Box<dyn st
 
     let (stdout, stderr) = process.communicate(None)?;
 
-    let Ok(Some(exit_status)) = process.wait_timeout(Duration::from_secs(cli.timeout_secs)) else {
-        process.terminate()?;
-        return Err("Failed to terminate process".into());
-    };
-
-    if !exit_status.success() {
-        handle_faulty_seed(&logs_dir, stdout, stderr, seed, cli.commit_id.clone(), api, cli.fail_fast)?;
-    } else {
-        info!(seed, "Finished check seed no error found");
+    match process.wait_timeout(Duration::from_secs(cli.timeout_secs)) {
+        Ok(Some(exit_status)) => {
+            if !exit_status.success() {
+                handle_faulty_seed(
+                    &logs_dir,
+                    stdout,
+                    stderr,
+                    seed,
+                    cli.commit_id.clone(),
+                    api,
+                    cli.fail_fast,
+                )?;
+            } else {
+                info!(seed, "Finished check seed no error found");
+            }
+        }
+        Ok(None) => {
+            // Timed out
+            warn!(
+                seed,
+                timeout_secs = cli.timeout_secs,
+                "Timeout reached; terminating process and continuing"
+            );
+            if let Err(e) = process.terminate() {
+                warn!(seed, error = ?e, "Failed to terminate process");
+            }
+            // Do not treat as error; continue with next seeds
+        }
+        Err(e) => {
+            // An actual error while waiting; try to terminate and bubble up the error
+            warn!(seed, error = ?e, "Error while waiting for process; terminating");
+            if let Err(e2) = process.terminate() {
+                warn!(seed, error = ?e2, "Failed to terminate process");
+            }
+            return Err(Box::<dyn std::error::Error>::from(e));
+        }
     }
 
     Ok(())
