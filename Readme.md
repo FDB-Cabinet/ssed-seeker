@@ -81,6 +81,8 @@ The CLI options are:
   - Comma‑separated list of seeds to test.
 - --chunk-size <N>
   - Number of seeds to run in parallel. Default (if omitted): 10.
+- --fail-fast
+  - Stop the run after the first faulty seed is found. With GitLab configured, an issue will be created for that seed before exiting; without GitLab, the stdout is printed (if available) and the program exits non‑zero.
 
 Notes on seed sources
 - You can supply seeds via `--seeds`, `--seed-file`, or let Seed Seeker generate random seeds.
@@ -97,8 +99,10 @@ Behavior and outputs
       - Full stderr of the simulation.
       - A compressed archive of the entire logs directory.
     - An issue titled `Investigate Faulty Seed #<seed>` is created with links to the uploaded artifacts and the filtered log content embedded.
+    - If `--fail-fast` is provided, the program exits immediately after creating the issue for the faulty seed.
   - If GitLab credentials are NOT configured:
     - No issue is created and no artifacts are uploaded.
+    - The stdout of the faulty run (if available) is printed before exiting.
     - The program exits with a non‑zero code as soon as a faulty seed is detected.
     - Note: logs are kept in a temporary directory during execution and are cleaned up when the process exits. Configure GitLab to preserve artifacts automatically.
 - Per‑seed timeout: each simulation is given up to 120s. On timeout the process is terminated.
@@ -143,8 +147,8 @@ FoundationDB requirement
 
 Exit codes
 - The CLI exits non‑zero on internal errors (e.g., invalid arguments, I/O errors, GitLab API failures).
-- With GitLab configured (token + project ID): faulty simulations cause issue creation; the process continues with other seeds unless a critical error occurs.
-- Without GitLab configured: the process exits non‑zero immediately when the first faulty seed is detected (no issue is created).
+- With GitLab configured (token + project ID): faulty simulations cause issue creation; the process continues with other seeds unless `--fail-fast` is specified (in which case the program exits after creating the issue).
+- Without GitLab configured: the process exits non‑zero immediately when the first faulty seed is detected (no issue is created); the stdout of the faulty run is printed if available.
 
 Troubleshooting
 - Cannot find `fdbserver`:

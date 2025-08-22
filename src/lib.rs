@@ -51,6 +51,9 @@ struct Cli {
     /// Number of seeds to run in parallel
     #[clap(long)]
     chunk_size: Option<usize>,
+    /// Stop the run after the first faulty seed is found
+    #[clap(long)]
+    fail_fast: bool,
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -189,7 +192,7 @@ fn run_seed(seed: u32, cli: &Cli, api: Option<&Gitlab>) -> Result<(), Box<dyn st
     };
 
     if !exit_status.success() {
-        handle_faulty_seed(&logs_dir, stdout, stderr, seed, cli.commit_id.clone(), api)?;
+        handle_faulty_seed(&logs_dir, stdout, stderr, seed, cli.commit_id.clone(), api, cli.fail_fast)?;
     } else {
         info!(seed, "Finished check seed no error found");
     }
@@ -204,6 +207,7 @@ fn handle_faulty_seed(
     seed: u32,
     commit_id: Option<String>,
     api: Option<&Gitlab>,
+    fail_fast: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     warn!(seed, "Faulty seed found");
 
@@ -248,6 +252,9 @@ fn handle_faulty_seed(
 
     if let Some(api) = api {
         api.create_issue(payload)?;
+        if fail_fast {
+            std::process::exit(1)
+        }
     }
     Ok(())
 }
