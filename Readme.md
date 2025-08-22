@@ -15,6 +15,13 @@ Prerequisites
   - If your binary lives elsewhere, provide `--fdbserver-path`.
 - Access to a GitLab project where the tool can create issues.
   - A personal access token or project access token with the permission to create issues and upload files.
+- libjq (jq C library) installed; required by `jq-rs` to filter JSON logs.
+  - Linux:
+    - Debian/Ubuntu: `sudo apt-get install libjq1 libjq-dev`
+    - Fedora/RHEL: `sudo dnf install jq-libs jq-devel`
+    - Arch: `sudo pacman -S jq` (provides libjq)
+  - macOS: `brew install jq` (provides libjq)
+  - Note: When building from source, ensure the development headers (`libjq-dev`/`jq-devel`) are installed so the crate can link.
 - Rust toolchain (if building from source): https://rustup.rs
 
 Environment and configuration
