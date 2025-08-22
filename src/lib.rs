@@ -63,6 +63,9 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
     // Build GitLab API client only if token and project_id are provided
     let api: Option<Gitlab> = match (&cli.token, &cli.gitlab_project_id) {
         (Some(token), Some(project_id)) => {
+
+            info!(host=cli.gitlab_url, project_id,"Export reports to GitLab");
+
             Some(
                 gitlab::GitlabBuilder::default()
                     .token(token.as_str())
@@ -71,7 +74,10 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
                     .build()?,
             )
         }
-        _ => None,
+        _ => {
+            info!("No GitLab API configured, skipping GitLab export");
+            None
+        },
     };
 
     let user_defined_seeds = merge_user_defined_seeds(cli.seeds.clone(), &cli.seed_file)?;
