@@ -22,6 +22,11 @@ Prerequisites
     - Arch: `sudo pacman -S jq` (provides libjq)
   - macOS: `brew install jq` (provides libjq)
   - Note: When building from source, ensure the development headers (`libjq-dev`/`jq-devel`) are installed so the crate can link.
+  - Oniguruma (libonig) development package may be required because jq links against it for regex support.
+    - Debian/Ubuntu: `sudo apt-get install libonig-dev`
+    - Fedora/RHEL: `sudo dnf install oniguruma-devel`
+    - Arch: `sudo pacman -S oniguruma`
+    - macOS (if needed): `brew install oniguruma`
   - IMPORTANT: If the build fails with "Unable to find libjq. Try setting `JQ_LIB_DIR` to specify the location of the lib.", set `JQ_LIB_DIR` to the directory containing your `libjq` shared library.
     - Linux (Ubuntu/Debian typical): `export JQ_LIB_DIR=/usr/lib/x86_64-linux-gnu`
     - macOS (Homebrew on Apple Silicon): `export JQ_LIB_DIR=/opt/homebrew/lib`
