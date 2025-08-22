@@ -1,6 +1,6 @@
 [package]
 name = "seed-seeker"
-version = "1.2.1"
+version = "1.2.2"
 edition = "2024"
 
 homepage = "https://github.com/FDB-Cabinet/ssed-seeker"

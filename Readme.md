@@ -106,7 +106,7 @@ Behavior and outputs
     - If `--fail-fast` is provided, the program exits immediately after creating the issue for the faulty seed.
   - If GitLab credentials are NOT configured:
     - No issue is created and no artifacts are uploaded.
-    - The stdout of the faulty run (if available) is printed before exiting.
+    - The stdout and stderr of the faulty run (if available) are printed, along with the filtered layer errors (Rust, Severity 40) extracted from the JSON logs, before exiting.
     - The program exits with a non‑zero code as soon as a faulty seed is detected.
     - Note: logs are kept in a temporary directory during execution and are cleaned up when the process exits. Configure GitLab to preserve artifacts automatically.
 - Per‑seed timeout: each simulation is given up to `--timeout-secs` (default 120s). On timeout the process is terminated, a warning is logged, and the run continues with other seeds (no issue is created for timeouts).

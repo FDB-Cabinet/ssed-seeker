@@ -244,22 +244,10 @@ fn handle_faulty_seed(
 ) -> Result<(), Box<dyn std::error::Error>> {
     warn!(seed, "Faulty seed found");
 
-    // If no GitLab API is configured, display the stdout and stderr then exit faulty
-    if api.is_none() {
-        println!("stdout:\n");
-        if let Some(out) = &stdout {
-            println!("{}", out);
-        }
-        println!("stderr:\n");
-        if let Some(err) = &stderr {
-            eprintln!("{}", err);
-        }
-        std::process::exit(1)
-    }
-
+    // Build filtered_output from logs (Rust layer, severity 40)
     let mut compiled = jq_rs::compile(r#"select(.Layer=="Rust") | select(.Severity=="40")"#)?;
 
-    let mut filtered_output = "".to_string();
+    let mut filtered_output = String::new();
 
     for file in walkdir::WalkDir::new(logs_dir.clone()) {
         let file = file?;
@@ -277,6 +265,23 @@ fn handle_faulty_seed(
                 filtered_output.push('\n');
             }
         }
+    }
+
+    // If no GitLab API is configured, display stdout, stderr, and filtered_output then exit faulty
+    if api.is_none() {
+        println!("stdout:\n");
+        if let Some(out) = &stdout {
+            println!("{}", out);
+        }
+        println!("stderr:\n");
+        if let Some(err) = &stderr {
+            eprintln!("{}", err);
+        }
+        println!("layer errors (filtered_output):\n");
+        if !filtered_output.is_empty() {
+            println!("{}", filtered_output);
+        }
+        std::process::exit(1)
     }
 
     let payload = PayloadBuilder::default()
