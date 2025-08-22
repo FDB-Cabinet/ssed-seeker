@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2025-08-22
+
+### Changed
+
+- Update changelog
+
+### Fixed
+
+- Display stderr along the stdout in case of faulty seed
+
 ## [1.2.0] - 2025-08-22
 
 ### Changed
@@ -36,6 +46,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Install libjq as build dependency
 - Initial commit
 
+[1.2.1]: https://github.com/FDB-Cabinet/ssed-seeker/compare/v1.2.0..v1.2.1
 [1.2.0]: https://github.com/FDB-Cabinet/ssed-seeker/compare/v1.1.0..v1.2.0
 [1.1.0]: https://github.com/FDB-Cabinet/ssed-seeker/compare/v1.0.0..v1.1.0
 
