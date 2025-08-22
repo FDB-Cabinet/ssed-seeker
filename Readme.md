@@ -22,6 +22,11 @@ Prerequisites
     - Arch: `sudo pacman -S jq` (provides libjq)
   - macOS: `brew install jq` (provides libjq)
   - Note: When building from source, ensure the development headers (`libjq-dev`/`jq-devel`) are installed so the crate can link.
+  - IMPORTANT: If the build fails with "Unable to find libjq. Try setting `JQ_LIB_DIR` to specify the location of the lib.", set `JQ_LIB_DIR` to the directory containing your `libjq` shared library.
+    - Linux (Ubuntu/Debian typical): `export JQ_LIB_DIR=/usr/lib/x86_64-linux-gnu`
+    - macOS (Homebrew on Apple Silicon): `export JQ_LIB_DIR=/opt/homebrew/lib`
+    - macOS (Homebrew on Intel): `export JQ_LIB_DIR=/usr/local/lib`
+    - You can verify the location by running `ls $(pkg-config --variable=libdir jq)` if `pkg-config` is set up.
 - Rust toolchain (if building from source): https://rustup.rs
 
 Environment and configuration

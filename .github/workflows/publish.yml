@@ -45,6 +45,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install libjq
         run: sudo apt-get update && sudo apt-get install -y libjq1 libjq-dev jq
+      - name: Set JQ_LIB_DIR
+        run: echo "JQ_LIB_DIR=/usr/lib/x86_64-linux-gnu" >> $GITHUB_ENV
       - uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
