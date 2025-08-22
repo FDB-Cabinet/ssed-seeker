@@ -211,10 +211,15 @@ fn handle_faulty_seed(
 ) -> Result<(), Box<dyn std::error::Error>> {
     warn!(seed, "Faulty seed found");
 
-    // If no GitLab API is configured, display the stdout then exit faulty
+    // If no GitLab API is configured, display the stdout and stderr then exit faulty
     if api.is_none() {
+        println!("stdout:\n");
         if let Some(out) = &stdout {
             println!("{}", out);
+        }
+        println!("stderr:\n");
+        if let Some(err) = &stderr {
+            eprintln!("{}", err);
         }
         std::process::exit(1)
     }
