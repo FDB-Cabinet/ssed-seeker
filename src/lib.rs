@@ -190,10 +190,10 @@ fn run_seed(seed: u32, cli: &Cli, api: Option<&Gitlab>) -> Result<(), Box<dyn st
         config,
     )?;
 
-    let (stdout, stderr) = process.communicate(None)?;
-
     match process.wait_timeout(Duration::from_secs(cli.timeout_secs)) {
         Ok(Some(exit_status)) => {
+            // Process finished within timeout; now read stdout/stderr
+            let (stdout, stderr) = process.communicate(None)?;
             if !exit_status.success() {
                 handle_faulty_seed(
                     &logs_dir,
