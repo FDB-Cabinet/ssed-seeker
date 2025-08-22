@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Documentation of behavior when no GitLab TOKEN/credentials are provided: the tool runs simulations but on the first faulty seed it exits with a non-zero code without creating a GitLab issue or uploading artifacts.
+
+### Changed
+- Clarified that `GITLAB_TOKEN` and `GITLAB_PROJECT_ID` are optional and only required to enable automatic GitLab issue creation and artifact uploads.
+
 ## [1.0.0] - 2025-08-22
 
 ### Changed

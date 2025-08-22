@@ -31,13 +31,14 @@ struct Cli {
     max_iterations: Option<u64>,
     /// Gitlab token to use
     #[clap(long, env = "GITLAB_TOKEN", hide_env_values = true)]
-    token: String,
+    token: Option<String>,
     /// Gitlab endpoint to use
     #[clap(long, env = "GITLAB_URL", default_value = "gitlab.com")]
     gitlab_url: String,
     /// Gitlab project id where to create the issue
+    /// Optional; required only when a token is provided
     #[clap(long, env = "GITLAB_PROJECT_ID")]
-    gitlab_project_id: u64,
+    gitlab_project_id: Option<u64>,
     /// Git commit ID
     #[clap(long)]
     commit_id: Option<String>,
@@ -59,11 +60,19 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 
     let cli = Cli::parse();
 
-    let api = gitlab::GitlabBuilder::default()
-        .token(cli.token.as_str())
-        .endpoint(cli.gitlab_url.as_str())
-        .project_id(cli.gitlab_project_id)
-        .build()?;
+    // Build GitLab API client only if token and project_id are provided
+    let api: Option<Gitlab> = match (&cli.token, &cli.gitlab_project_id) {
+        (Some(token), Some(project_id)) => {
+            Some(
+                gitlab::GitlabBuilder::default()
+                    .token(token.as_str())
+                    .endpoint(cli.gitlab_url.as_str())
+                    .project_id(*project_id)
+                    .build()?,
+            )
+        }
+        _ => None,
+    };
 
     let user_defined_seeds = merge_user_defined_seeds(cli.seeds.clone(), &cli.seed_file)?;
 
@@ -73,11 +82,11 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
         run_seeds(
             seed_iterator.take(max_iteration as usize),
             &cli,
-            &api,
+            api.as_ref(),
             cli.chunk_size,
         )?;
     } else {
-        run_seeds(seed_iterator, &cli, &api, cli.chunk_size)?;
+        run_seeds(seed_iterator, &cli, api.as_ref(), cli.chunk_size)?;
     }
 
     Ok(())
@@ -86,7 +95,7 @@ pub fn run() -> Result<(), Box<dyn std::error::Error>> {
 fn run_seeds(
     seed_iterator: impl Iterator<Item = u32>,
     cli: &Cli,
-    api: &Gitlab,
+    api: Option<&Gitlab>,
     chunk_size: Option<usize>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut accumulator = vec![];
@@ -127,7 +136,7 @@ fn run_seeds(
     Ok(())
 }
 
-fn run_seed(seed: u32, cli: &Cli, api: &Gitlab) -> Result<(), Box<dyn std::error::Error>> {
+fn run_seed(seed: u32, cli: &Cli, api: Option<&Gitlab>) -> Result<(), Box<dyn std::error::Error>> {
     info!(seed, "Starting to check seed");
 
     let data_dir = tempfile::tempdir()?;
@@ -174,7 +183,7 @@ fn run_seed(seed: u32, cli: &Cli, api: &Gitlab) -> Result<(), Box<dyn std::error
     };
 
     if !exit_status.success() {
-        handle_faulty_seed(&logs_dir, stdout, stderr, seed, cli.commit_id.clone(), &api)?;
+        handle_faulty_seed(&logs_dir, stdout, stderr, seed, cli.commit_id.clone(), api)?;
     } else {
         info!(seed, "Finished check seed no error found");
     }
@@ -188,9 +197,15 @@ fn handle_faulty_seed(
     stderr: Option<String>,
     seed: u32,
     commit_id: Option<String>,
-    api: &Gitlab,
+    api: Option<&Gitlab>,
 ) -> Result<(), Box<dyn std::error::Error>> {
     warn!(seed, "Faulty seed found");
+
+    // If no GitLab API is configured, display the errored seed and exit
+    if api.is_none() {
+        std::process::exit(1)
+    }
+
     let mut compiled = jq_rs::compile(r#"select(.Layer=="Rust") | select(.Severity=="40")"#)?;
 
     let mut filtered_output = "".to_string();
@@ -207,7 +222,6 @@ fn handle_faulty_seed(
                     continue;
                 }
                 let pretty = jsonxf::pretty_print(&logs)?;
-                // println!("{}", pretty.to_colored_json_auto()?);
                 filtered_output.push_str(&pretty);
                 filtered_output.push('\n');
             }
@@ -223,6 +237,8 @@ fn handle_faulty_seed(
         .commit_id(commit_id)
         .build()?;
 
-    api.create_issue(payload)?;
+    if let Some(api) = api {
+        api.create_issue(payload)?;
+    }
     Ok(())
 }

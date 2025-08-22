@@ -1,13 +1,15 @@
 Seed Seeker
 ===========
 
-Seed Seeker is a small CLI tool that runs FoundationDB simulation workloads with different random seeds to find faulty seeds. When a faulty run is detected, Seed Seeker collects logs and automatically opens a GitLab issue with the relevant artifacts attached.
+Seed Seeker is a small CLI tool that runs FoundationDB simulation workloads with different random seeds to find faulty seeds. When a faulty run is detected, Seed Seeker collects logs and, if GitLab credentials are configured, automatically opens a GitLab issue with the relevant artifacts attached.
 
 What it does
 - Launches `fdbserver` in simulation mode on a given `.toml`/workload file.
 - Iterates across random or user-provided seeds (optionally bounded by a max iteration count).
 - Runs multiple seeds in parallel to speed up discovery.
-- For non‑successful runs, collects stdout, stderr, and trace logs, filters Rust layer errors, and files a GitLab issue with attachments.
+- For non‑successful runs, collects stdout, stderr, and trace logs, filters Rust layer errors, and:
+  - If GitLab credentials are provided, files a GitLab issue with attachments.
+  - If no GitLab credentials are provided, exits non‑zero to signal a faulty seed.
 
 Prerequisites
 - FoundationDB installed locally (or at least the `fdbserver` binary available).
@@ -36,9 +38,9 @@ Prerequisites
 
 Environment and configuration
 - Environment variables (can be supplied via a `.env` file thanks to dotenv):
-  - `GITLAB_TOKEN` (required if not passed via `--token`): GitLab token with issue creation and upload permissions.
+  - `GITLAB_TOKEN` (optional): GitLab token with issue creation and upload permissions. Required only if you want Seed Seeker to automatically create GitLab issues and upload artifacts.
   - `GITLAB_URL` (optional): GitLab host, defaults to `gitlab.com`.
-  - `GITLAB_PROJECT_ID` (required if not passed via `--gitlab-project-id`): Numeric project ID in GitLab.
+  - `GITLAB_PROJECT_ID` (optional): Numeric project ID in GitLab. Required only together with a token to enable automatic issue creation.
 - Logging:
   - The CLI uses `tracing_subscriber`. You can control verbosity with `RUST_LOG`, e.g. `RUST_LOG=info` or `RUST_LOG=debug`.
 
@@ -61,6 +63,7 @@ The CLI options are:
   - Maximum number of iterations/seeds to run. If omitted, runs indefinitely (or until user-provided seeds are exhausted).
 - --token <TOKEN>
   - GitLab token to use. If not set, read from `GITLAB_TOKEN`.
+  - Optional; required only if you want automatic GitLab issue creation and uploads.
   - Env: `GITLAB_TOKEN`.
 - --gitlab-url <HOST>
   - GitLab host (no protocol), e.g. `gitlab.com` or `gitlab.example.com`.
@@ -68,6 +71,7 @@ The CLI options are:
   - Env: `GITLAB_URL`.
 - --gitlab-project-id <ID>
   - Numeric GitLab project ID where issues should be created.
+  - Optional; required only together with `--token` to enable automatic issue creation.
   - Env: `GITLAB_PROJECT_ID`.
 - --commit-id <SHA>
   - Optional commit ID to include in the created issue for context.
@@ -87,11 +91,16 @@ Behavior and outputs
 - Successful run (exit code 0): the seed is considered clean; nothing is filed.
 - Faulty run (non‑zero exit):
   - Seed Seeker scans collected JSON trace logs and extracts entries with `Layer == "Rust"` and `Severity == "40"` for quick inspection.
-  - It uploads three artifacts to GitLab via the project upload API:
-    - Full stdout of the simulation.
-    - Full stderr of the simulation.
-    - A compressed archive of the entire logs directory.
-  - An issue titled `Investigate Faulty Seed #<seed>` is created with links to the uploaded artifacts and the filtered log content embedded.
+  - If GitLab credentials are configured (token + project ID):
+    - It uploads three artifacts to GitLab via the project upload API:
+      - Full stdout of the simulation.
+      - Full stderr of the simulation.
+      - A compressed archive of the entire logs directory.
+    - An issue titled `Investigate Faulty Seed #<seed>` is created with links to the uploaded artifacts and the filtered log content embedded.
+  - If GitLab credentials are NOT configured:
+    - No issue is created and no artifacts are uploaded.
+    - The program exits with a non‑zero code as soon as a faulty seed is detected.
+    - Note: logs are kept in a temporary directory during execution and are cleaned up when the process exits. Configure GitLab to preserve artifacts automatically.
 - Per‑seed timeout: each simulation is given up to 120s. On timeout the process is terminated.
 
 Examples
@@ -134,7 +143,8 @@ FoundationDB requirement
 
 Exit codes
 - The CLI exits non‑zero on internal errors (e.g., invalid arguments, I/O errors, GitLab API failures).
-- When running, individual faulty simulations result in issue creation; the overall CLI process continues testing other seeds unless a critical error occurs.
+- With GitLab configured (token + project ID): faulty simulations cause issue creation; the process continues with other seeds unless a critical error occurs.
+- Without GitLab configured: the process exits non‑zero immediately when the first faulty seed is detected (no issue is created).
 
 Troubleshooting
 - Cannot find `fdbserver`:
