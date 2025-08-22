@@ -13,6 +13,7 @@ mod gitlab;
 mod seed;
 
 const DEFAULT_CHUNK_SIZE: usize = 10;
+const DEFAULT_TIMEOUT_SECS: u64 = 120;
 
 fn default_fdbserver_path() -> String {
     String::from("/usr/sbin/fdbserver")
@@ -54,6 +55,9 @@ struct Cli {
     /// Stop the run after the first faulty seed is found
     #[clap(long)]
     fail_fast: bool,
+    /// Timeout (in seconds) to wait for each simulation before terminating it
+    #[clap(long = "timeout-secs", env = "TIMEOUT_SECS", default_value_t = DEFAULT_TIMEOUT_SECS)]
+    timeout_secs: u64,
 }
 
 pub fn run() -> Result<(), Box<dyn std::error::Error>> {
@@ -186,7 +190,7 @@ fn run_seed(seed: u32, cli: &Cli, api: Option<&Gitlab>) -> Result<(), Box<dyn st
 
     let (stdout, stderr) = process.communicate(None)?;
 
-    let Ok(Some(exit_status)) = process.wait_timeout(Duration::from_secs(120)) else {
+    let Ok(Some(exit_status)) = process.wait_timeout(Duration::from_secs(cli.timeout_secs)) else {
         process.terminate()?;
         return Err("Failed to terminate process".into());
     };

@@ -83,6 +83,10 @@ The CLI options are:
   - Number of seeds to run in parallel. Default (if omitted): 10.
 - --fail-fast
   - Stop the run after the first faulty seed is found. With GitLab configured, an issue will be created for that seed before exiting; without GitLab, the stdout is printed (if available) and the program exits non‑zero.
+- --timeout-secs <SECONDS>
+  - Timeout per seed in seconds. The simulation process will be terminated after this period.
+  - Default: 120.
+  - Env: `TIMEOUT_SECS`.
 
 Notes on seed sources
 - You can supply seeds via `--seeds`, `--seed-file`, or let Seed Seeker generate random seeds.
@@ -105,7 +109,7 @@ Behavior and outputs
     - The stdout of the faulty run (if available) is printed before exiting.
     - The program exits with a non‑zero code as soon as a faulty seed is detected.
     - Note: logs are kept in a temporary directory during execution and are cleaned up when the process exits. Configure GitLab to preserve artifacts automatically.
-- Per‑seed timeout: each simulation is given up to 120s. On timeout the process is terminated.
+- Per‑seed timeout: each simulation is given up to `--timeout-secs` (default 120s). On timeout the process is terminated.
 
 Examples
 1) Run random seeds against a workload, limit to 100 iterations, 10 in parallel
