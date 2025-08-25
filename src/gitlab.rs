@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::time::SystemTime;
 use tracing::trace;
 
-#[derive(Debug, Builder)]
+#[derive(Debug, Builder, Clone)]
 #[builder(setter(into))]
 pub struct Gitlab {
     endpoint: String,

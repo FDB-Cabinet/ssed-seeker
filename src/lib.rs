@@ -1,13 +1,11 @@
 use crate::gitlab::{Gitlab, PayloadBuilder};
 use crate::seed::{SeedIterator, merge_user_defined_seeds};
 use clap::Parser;
-use rayon::iter::IntoParallelRefIterator;
-use rayon::iter::ParallelIterator;
 use std::io::BufRead;
 use std::path::PathBuf;
 use std::time::Duration;
 use subprocess::{PopenConfig, Redirection};
-use tracing::{debug, info, warn};
+use tracing::{info, warn};
 
 mod gitlab;
 mod seed;
@@ -19,7 +17,7 @@ fn default_fdbserver_path() -> String {
     String::from("/usr/sbin/fdbserver")
 }
 
-#[derive(clap::Parser, Debug)]
+#[derive(clap::Parser, Debug, Clone)]
 struct Cli {
     /// Path to fdbserver binary
     #[clap(long, default_value_t = default_fdbserver_path())]
@@ -113,7 +111,8 @@ fn run_seeds(
     api: Option<&Gitlab>,
     chunk_size: Option<usize>,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let mut accumulator = vec![];
+    // Use a small worker pool pattern by throttling the number of in-flight tasks to chunk_size.
+    use std::sync::mpsc;
 
     let chunk_size = chunk_size.unwrap_or(DEFAULT_CHUNK_SIZE);
 
@@ -125,33 +124,52 @@ fn run_seeds(
         "inf".to_string()
     };
 
-    let mut checked_seeds = 0;
+    let (tx, rx) = mpsc::channel::<()>();
+    let mut inflight = 0usize;
+    let mut checked_seeds = 0usize;
+
+    // Shared references for threads
+    let cli_arc = std::sync::Arc::new(cli.clone());
+    let api_arc: Option<std::sync::Arc<Gitlab>> = api.cloned().map(std::sync::Arc::new);
 
     for seed in seed_iterator {
-        info!(seed, "Preparing to check seed");
-        accumulator.push(seed);
-        if accumulator.len() >= chunk_size {
-            debug!(?accumulator, "Running seeds");
-            info!("Running seeds [{checked_seeds}/{end}]");
-            accumulator.par_iter().for_each(|seed| {
-                run_seed(*seed, cli, api).expect("failed to run seed");
-            });
-            checked_seeds += accumulator.len();
-            accumulator.clear();
+        // If we already have max parallel jobs running, wait for one to finish.
+        if inflight >= chunk_size {
+            if rx.recv().is_ok() {
+                inflight -= 1;
+                checked_seeds += 1;
+                info!("Progress [{checked_seeds}/{end}]");
+            }
         }
+
+        let tx_cloned = tx.clone();
+        let cli_for_thread = std::sync::Arc::clone(&cli_arc);
+        let api_for_thread = api_arc.as_ref().map(std::sync::Arc::clone);
+        info!(seed, "Preparing to check seed");
+        std::thread::spawn(move || {
+            // Note: run_seed may exit the process on faulty seed according to settings.
+            if let Err(e) = run_seed(seed, &cli_for_thread, api_for_thread) {
+                warn!(seed, error = ?e, "failed to run seed");
+            }
+            // Notify completion; ignore send errors if receiver is dropped due to early exit
+            let _ = tx_cloned.send(());
+        });
+        inflight += 1;
     }
-    if !accumulator.is_empty() {
-        info!("Tearing down remaining seeds");
-        info!("Running seeds [{checked_seeds}/{end}]");
-        accumulator.par_iter().for_each(|seed| {
-            run_seed(*seed, cli, api).expect("failed to run seed");
-        })
+
+    // Wait for all in-flight tasks to finish
+    while inflight > 0 {
+        if rx.recv().is_ok() {
+            inflight -= 1;
+            checked_seeds += 1;
+            info!("Progress [{checked_seeds}/{end}]");
+        }
     }
 
     Ok(())
 }
 
-fn run_seed(seed: u32, cli: &Cli, api: Option<&Gitlab>) -> Result<(), Box<dyn std::error::Error>> {
+fn run_seed(seed: u32, cli: &std::sync::Arc<Cli>, api: Option<std::sync::Arc<Gitlab>>) -> Result<(), Box<dyn std::error::Error>> {
     info!(seed, "Starting to check seed");
 
     let data_dir = tempfile::tempdir()?;
@@ -201,7 +219,7 @@ fn run_seed(seed: u32, cli: &Cli, api: Option<&Gitlab>) -> Result<(), Box<dyn st
                     stderr,
                     seed,
                     cli.commit_id.clone(),
-                    api,
+                    api.as_deref(),
                     cli.fail_fast,
                 )?;
             } else {
